@@ -111,12 +111,91 @@ function spawnNewBlock() {
 
 // --- Axis Indicator ---
 const axisGroup = new THREE.Group();
-const arrowLength = FIELD_WIDTH / 2 + 1;
-const xAxisArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-arrowLength / 2, 0.1, 0), arrowLength, 0xff0000);
-const zAxisArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0.1, -arrowLength / 2), arrowLength, 0x0000ff);
-axisGroup.add(xAxisArrow);
-axisGroup.add(zAxisArrow);
 scene.add(axisGroup);
+
+// Helper function to create a text sprite
+CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+    if (w < 2 * r) r = w / 2;
+    if (h < 2 * r) r = h / 2;
+    this.beginPath();
+    this.moveTo(x + r, y);
+    this.arcTo(x + w, y, x + w, y + h, r);
+    this.arcTo(x + w, y + h, x, y + h, r);
+    this.arcTo(x, y + h, x, y, r);
+    this.arcTo(x, y, x + w, y, r);
+    this.closePath();
+    return this;
+};
+
+function makeTextSprite(message, parameters) {
+    if (parameters === undefined) parameters = {};
+    const fontface = parameters.hasOwnProperty("fontface") ? parameters["fontface"] : "Arial";
+    const fontsize = parameters.hasOwnProperty("fontsize") ? parameters["fontsize"] : 30;
+    const borderThickness = parameters.hasOwnProperty("borderThickness") ? parameters["borderThickness"] : 4;
+    const borderColor = parameters.hasOwnProperty("borderColor") ? parameters["borderColor"] : { r: 0, g: 0, b: 0, a: 1.0 };
+    const backgroundColor = parameters.hasOwnProperty("backgroundColor") ? parameters["backgroundColor"] : { r: 0, g: 0, b: 0, a: 0.8 };
+    const textColor = parameters.hasOwnProperty("textColor") ? parameters["textColor"] : { r: 255, g: 255, b: 255, a: 1.0 };
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    context.font = "Bold " + fontsize + "px " + fontface;
+    const metrics = context.measureText(message);
+    const textWidth = metrics.width;
+
+    canvas.width = textWidth + borderThickness * 2;
+    canvas.height = fontsize + borderThickness * 2;
+
+    context.font = "Bold " + fontsize + "px " + fontface;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+
+    context.fillStyle = "rgba(" + backgroundColor.r + "," + backgroundColor.g + "," + backgroundColor.b + "," + backgroundColor.a + ")";
+    context.strokeStyle = "rgba(" + borderColor.r + "," + borderColor.g + "," + borderColor.b + "," + borderColor.a + ")";
+
+    context.lineWidth = borderThickness;
+    context.roundRect(0, 0, canvas.width, canvas.height, 6);
+    context.fill();
+    context.stroke();
+
+    context.fillStyle = "rgba(" + textColor.r + ", " + textColor.g + ", " + textColor.b + ", 1.0)";
+    context.fillText(message, canvas.width / 2, canvas.height / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+
+    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+    const sprite = new THREE.Sprite(spriteMaterial);
+    sprite.scale.set(canvas.width * 0.02, canvas.height * 0.02, 1); 
+    return sprite;
+}
+
+// +X (Right) Arrow and Text
+const plusXArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(FIELD_WIDTH / 2 - 1, 0.1, 0), 1, 0xff0000);
+const plusXText = makeTextSprite("+X (→)");
+plusXText.position.set(FIELD_WIDTH / 2 + 0.5, 0.1, 0);
+axisGroup.add(plusXArrow);
+axisGroup.add(plusXText);
+
+// -X (Left) Arrow and Text
+const minusXArrow = new THREE.ArrowHelper(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(-FIELD_WIDTH / 2 + 1, 0.1, 0), 1, 0xff0000);
+const minusXText = makeTextSprite("-X (←)");
+minusXText.position.set(-FIELD_WIDTH / 2 - 0.5, 0.1, 0);
+axisGroup.add(minusXArrow);
+axisGroup.add(minusXText);
+
+// +Z (Backward/Arrow Down) Arrow and Text
+const plusZArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0.1, FIELD_DEPTH / 2 - 1), 1, 0x0000ff);
+const plusZText = makeTextSprite("+Z (↓)");
+plusZText.position.set(0, 0.1, FIELD_DEPTH / 2 + 0.5);
+axisGroup.add(plusZArrow);
+axisGroup.add(plusZText);
+
+// -Z (Forward/Arrow Up) Arrow and Text
+const minusZArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0.1, -FIELD_DEPTH / 2 + 1), 1, 0x0000ff);
+const minusZText = makeTextSprite("-Z (↑)");
+minusZText.position.set(0, 0.1, -FIELD_DEPTH / 2 - 0.5);
+axisGroup.add(minusZArrow);
+axisGroup.add(minusZText);
 
 // --- Game Logic ---
 const clock = new THREE.Clock();
