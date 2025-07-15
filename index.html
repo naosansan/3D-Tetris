@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Tetris</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="ui-container">
+        <div class="ui-label">SCORE</div>
+        <div id="score">0</div>
+        <div class="ui-label">LINES</div>
+        <div id="lines">0</div>
+        <div class="ui-label">NEXT</div>
+        <div id="next-block-container"></div>
+    </div>
+
+    <div id="instructions">
+        <strong>Controls:</strong><br>
+        - Arrows: Move<br>
+        - A/S: Rotate Y<br>
+        - W/Q: Rotate X<br>
+        - X/Z: Rotate Z<br>
+        - Space: Soft Drop<br>
+        - Mouse Drag: Rotate View
+    </div>
+
+    <div id="modal-overlay">
+        <div id="start-modal">
+            <h1>3D Tetris</h1>
+            <button id="start-button">START</button>
+        </div>
+        <div id="gameover-modal" style="display: none;">
+            <h2>GAME OVER</h2>
+            <p>Final Score: <span id="final-score">0</span></p>
+            <button id="restart-button">RESTART</button>
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module" src="main.js"></script>
+</body>
+</html>

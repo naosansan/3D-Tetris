@@ -1,0 +1,90 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #111;
+    color: #fff;
+    font-family: sans-serif;
+}
+
+canvas {
+    display: block;
+}
+
+#ui-container {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.7);
+    border-radius: 8px;
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 10px 20px;
+    align-items: center;
+}
+
+.ui-label {
+    font-weight: bold;
+    color: #aaa;
+}
+
+#score, #lines {
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+#next-block-container {
+    width: 100px;
+    height: 100px;
+    grid-column: span 2;
+    border: 1px solid #555;
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+#instructions {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.7);
+    border-radius: 8px;
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
+#modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+#start-modal, #gameover-modal {
+    padding: 40px;
+    background-color: #222;
+    border-radius: 10px;
+}
+
+h1, h2 {
+    margin-top: 0;
+}
+
+button {
+    padding: 10px 20px;
+    font-size: 1.2em;
+    cursor: pointer;
+    background-color: #444;
+    color: #fff;
+    border: 1px solid #666;
+    border-radius: 5px;
+}
+
+button:hover {
+    background-color: #555;
+}
