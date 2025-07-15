@@ -61,16 +61,23 @@ const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2
 // --- Game State ---
 let gameState = 'start'; // 'start', 'playing', 'gameover'
 let currentBlock = null;
+let ghostBlock = null; // New variable for the ghost piece
 let nextBlockType = null;
 const placedCubes = new THREE.Group();
 scene.add(placedCubes);
 let score = 0;
 let lines = 0;
 
-function createBlock(type) {
+function createBlock(type, isGhost = false) {
     const blockData = BLOCKS[type];
     const block = new THREE.Group();
-    const material = new THREE.MeshStandardMaterial({ color: blockData.color, transparent: true, opacity: 0.9 });
+    let material;
+    if (isGhost) {
+        material = new THREE.MeshStandardMaterial({ color: blockData.color, transparent: true, opacity: 0.2 }); // Semi-transparent
+    } else {
+        material = new THREE.MeshStandardMaterial({ color: blockData.color, transparent: true, opacity: 0.9 });
+    }
+
     blockData.shape.forEach(pos => {
         const cube = new THREE.Mesh(cubeGeometry, material);
         const edges = new THREE.EdgesGeometry(cube.geometry);
@@ -105,8 +112,15 @@ function spawnNewBlock() {
     currentBlock = createBlock(nextBlockType);
     currentBlock.position.set(0.5, FIELD_HEIGHT - 1.5, 0.5);
     scene.add(currentBlock);
+
+    // Create ghost block
+    if (ghostBlock) scene.remove(ghostBlock); // Remove previous ghost if any
+    ghostBlock = createBlock(nextBlockType, true); // Create as ghost
+    scene.add(ghostBlock);
+
     nextBlockType = BLOCK_TYPES[Math.floor(Math.random() * BLOCK_TYPES.length)];
     updateNextBlockView();
+    updateGhostBlockPosition(); // Update ghost position immediately after spawning
 }
 
 // --- Axis Indicator ---
@@ -130,10 +144,10 @@ CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
 function makeTextSprite(message, parameters) {
     if (parameters === undefined) parameters = {};
     const fontface = parameters.hasOwnProperty("fontface") ? parameters["fontface"] : "Arial";
-    const fontsize = parameters.hasOwnProperty("fontsize") ? parameters["fontsize"] : 30;
+    const fontsize = parameters.hasOwnProperty("fontsize") ? parameters["fontsize"] : 40;
     const borderThickness = parameters.hasOwnProperty("borderThickness") ? parameters["borderThickness"] : 4;
     const borderColor = parameters.hasOwnProperty("borderColor") ? parameters["borderColor"] : { r: 0, g: 0, b: 0, a: 1.0 };
-    const backgroundColor = parameters.hasOwnProperty("backgroundColor") ? parameters["backgroundColor"] : { r: 0, g: 0, b: 0, a: 0.8 };
+    const backgroundColor = parameters.hasOwnProperty("backgroundColor") ? parameters["backgroundColor"] : { r: 0, g: 0, b: 0, a: 1.0 };
     const textColor = parameters.hasOwnProperty("textColor") ? parameters["textColor"] : { r: 255, g: 255, b: 255, a: 1.0 };
 
     const canvas = document.createElement('canvas');
@@ -165,7 +179,7 @@ function makeTextSprite(message, parameters) {
 
     const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
     const sprite = new THREE.Sprite(spriteMaterial);
-    sprite.scale.set(canvas.width * 0.02, canvas.height * 0.02, 1); 
+    sprite.scale.set(canvas.width * 0.03, canvas.height * 0.03, 1); 
     return sprite;
 }
 
@@ -207,28 +221,89 @@ function updateUI() {
     linesElement.textContent = lines;
 }
 
-function isValidPosition(block) {
+// Helper to get grid coordinates from world position
+function getGridCoords(worldPos) {
+    return new THREE.Vector3(
+        Math.round(worldPos.x - 0.5),
+        Math.round(worldPos.y - 0.5),
+        Math.round(worldPos.z - 0.5)
+    );
+}
+
+function isValidPosition(block, testPosition) {
+    // Temporarily apply the test position to the block for world position calculation
+    const originalPosition = block.position.clone();
+    block.position.copy(testPosition);
+
+    let valid = true;
     for (const cube of block.children) {
         const worldPos = cube.getWorldPosition(new THREE.Vector3());
-        if (worldPos.x < -FIELD_WIDTH / 2 + 0.4 || worldPos.x > FIELD_WIDTH / 2 - 0.4) return false;
-        if (worldPos.z < -FIELD_DEPTH / 2 + 0.4 || worldPos.z > FIELD_DEPTH / 2 - 0.4) return false;
-        if (worldPos.y < 0.4) return false;
+        const gridCoords = getGridCoords(worldPos);
+
+        // Wall collision
+        if (gridCoords.x < -FIELD_WIDTH / 2 || gridCoords.x >= FIELD_WIDTH / 2) { valid = false; break; }
+        if (gridCoords.z < -FIELD_DEPTH / 2 || gridCoords.z >= FIELD_DEPTH / 2) { valid = false; break; }
+        // Floor collision
+        if (gridCoords.y < 0) { valid = false; break; }
+        // Ceiling collision (for game over check, though handled in lockBlock)
+        // if (gridCoords.y >= FIELD_HEIGHT) { valid = false; break; }
+
+        // Placed cubes collision
         for (const placed of placedCubes.children) {
-            if (worldPos.distanceTo(placed.position) < 0.5) return false;
+            const placedGridCoords = getGridCoords(placed.position);
+            if (gridCoords.equals(placedGridCoords)) {
+                valid = false;
+                break;
+            }
+        }
+        if (!valid) break;
+    }
+
+    // Revert block's position
+    block.position.copy(originalPosition);
+    return valid;
+}
+
+function updateGhostBlockPosition() {
+    if (!currentBlock || !ghostBlock) return;
+
+    // Copy current block's rotation and initial position
+    ghostBlock.rotation.copy(currentBlock.rotation);
+    ghostBlock.position.copy(currentBlock.position);
+
+    // Find the lowest valid position for the ghost block
+    let testPosition = ghostBlock.position.clone();
+    let foundPosition = false;
+    while (testPosition.y >= 0) { // Check down to the floor
+        testPosition.y -= 1;
+        if (!isValidPosition(currentBlock, testPosition)) { // Use currentBlock's shape with testPosition
+            ghostBlock.position.copy(testPosition).add(new THREE.Vector3(0, 1, 0)); // Move back up one step
+            foundPosition = true;
+            break;
         }
     }
-    return true;
+    if (!foundPosition) { // Fallback if it somehow goes through the floor
+        ghostBlock.position.copy(testPosition).add(new THREE.Vector3(0, 1, 0));
+    }
 }
 
 function checkAndClearLayers() {
     const CUBES_PER_LAYER = FIELD_WIDTH * FIELD_DEPTH;
     let layersCleared = 0;
     for (let y = 0; y < FIELD_HEIGHT; y++) {
-        const cubesInLayer = placedCubes.children.filter(c => Math.round(c.position.y - 0.5) === y);
+        const cubesInLayer = placedCubes.children.filter(c => getGridCoords(c.position).y === y);
         if (cubesInLayer.length === CUBES_PER_LAYER) {
             layersCleared++;
+            // Remove the cubes of the cleared layer
             cubesInLayer.forEach(c => placedCubes.remove(c));
-            placedCubes.children.forEach(c => { if (c.position.y > y) c.position.y -= 1; });
+
+            // Move down all cubes above the cleared layer
+            placedCubes.children.forEach(c => {
+                if (getGridCoords(c.position).y > y) {
+                    c.position.y -= 1;
+                }
+            });
+            // Decrement y to re-check the current layer index, as new cubes have moved into it
             y--; 
         }
     }
@@ -245,16 +320,21 @@ function lockBlock() {
     currentBlock.children.forEach(cube => {
         const newCube = cube.clone();
         cube.getWorldPosition(newCube.position);
-        newCube.position.x = Math.round(newCube.position.x - 0.5) + 0.5;
-        newCube.position.y = Math.round(newCube.position.y - 0.5) + 0.5;
-        newCube.position.z = Math.round(newCube.position.z - 0.5) + 0.5;
-        if (newCube.position.y >= FIELD_HEIGHT - 0.5) {
+        newCube.position.copy(getGridCoords(newCube.position).add(new THREE.Vector3(0.5, 0.5, 0.5))); // Snap to grid center
+        
+        if (getGridCoords(newCube.position).y >= FIELD_HEIGHT - 1) { // Check if block is too high
             isGameOver = true;
         }
         cubesToMove.push(newCube);
     });
     scene.remove(currentBlock);
     currentBlock = null;
+
+    if (ghostBlock) { // Remove ghost block when current block locks
+        scene.remove(ghostBlock);
+        ghostBlock = null;
+    }
+
     cubesToMove.forEach(cube => placedCubes.add(cube));
     
     if (isGameOver) {
@@ -284,6 +364,8 @@ function resetGame() {
     while(placedCubes.children.length > 0) placedCubes.remove(placedCubes.children[0]);
     if (currentBlock) scene.remove(currentBlock);
     currentBlock = null;
+    if (ghostBlock) scene.remove(ghostBlock); // Remove ghost block on reset
+    ghostBlock = null;
 }
 
 function startGame() {
@@ -293,6 +375,7 @@ function startGame() {
     controls.enabled = true;
     nextBlockType = BLOCK_TYPES[Math.floor(Math.random() * BLOCK_TYPES.length)];
     spawnNewBlock();
+    updateGhostBlockPosition(); // Initial ghost position
 }
 
 // --- Event Listeners ---
@@ -301,21 +384,73 @@ restartButton.addEventListener('click', startGame);
 
 document.addEventListener('keydown', (event) => {
     if (gameState !== 'playing' || !currentBlock) return;
+
+    let moved = false; // Flag to check if block moved/rotated
     switch (event.key) {
-        case 'ArrowLeft': currentBlock.position.x -= 1; if (!isValidPosition(currentBlock)) currentBlock.position.x += 1; break;
-        case 'ArrowRight': currentBlock.position.x += 1; if (!isValidPosition(currentBlock)) currentBlock.position.x -= 1; break;
-        case 'ArrowUp': currentBlock.position.z -= 1; if (!isValidPosition(currentBlock)) currentBlock.position.z += 1; break;
-        case 'ArrowDown': currentBlock.position.z += 1; if (!isValidPosition(currentBlock)) currentBlock.position.z -= 1; break;
-        case 'a': currentBlock.rotateY(Math.PI / 2); if (!isValidPosition(currentBlock)) currentBlock.rotateY(-Math.PI / 2); break;
-        case 's': currentBlock.rotateY(-Math.PI / 2); if (!isValidPosition(currentBlock)) currentBlock.rotateY(Math.PI / 2); break;
-        case 'w': currentBlock.rotateX(Math.PI / 2); if (!isValidPosition(currentBlock)) currentBlock.rotateX(-Math.PI / 2); break;
-        case 'q': currentBlock.rotateX(-Math.PI / 2); if (!isValidPosition(currentBlock)) currentBlock.rotateX(Math.PI / 2); break;
-        case 'x': currentBlock.rotateZ(Math.PI / 2); if (!isValidPosition(currentBlock)) currentBlock.rotateZ(-Math.PI / 2); break;
-        case 'z': currentBlock.rotateZ(-Math.PI / 2); if (!isValidPosition(currentBlock)) currentBlock.rotateZ(Math.PI / 2); break;
-        case ' ': isSoftDropping = true; break;
+        case 'ArrowLeft':
+            currentBlock.position.x -= 1;
+            if (!isValidPosition(currentBlock, currentBlock.position)) currentBlock.position.x += 1;
+            else moved = true;
+            break;
+        case 'ArrowRight':
+            currentBlock.position.x += 1;
+            if (!isValidPosition(currentBlock, currentBlock.position)) currentBlock.position.x -= 1;
+            else moved = true;
+            break;
+        case 'ArrowUp':
+            currentBlock.position.z -= 1;
+            if (!isValidPosition(currentBlock, currentBlock.position)) currentBlock.position.z += 1;
+            else moved = true;
+            break;
+        case 'ArrowDown':
+            currentBlock.position.z += 1;
+            if (!isValidPosition(currentBlock, currentBlock.position)) currentBlock.position.z -= 1;
+            else moved = true;
+            break;
+        case 'a':
+            currentBlock.rotateY(Math.PI / 2);
+            if (!isValidPosition(currentBlock, currentBlock.position)) currentBlock.rotateY(-Math.PI / 2);
+            else moved = true;
+            break;
+        case 's':
+            currentBlock.rotateY(-Math.PI / 2);
+            if (!isValidPosition(currentBlock, currentBlock.position)) currentBlock.rotateY(Math.PI / 2);
+            else moved = true;
+            break;
+        case 'w':
+            currentBlock.rotateX(Math.PI / 2);
+            if (!isValidPosition(currentBlock, currentBlock.position)) currentBlock.rotateX(-Math.PI / 2);
+            else moved = true;
+            break;
+        case 'q':
+            currentBlock.rotateX(-Math.PI / 2);
+            if (!isValidPosition(currentBlock, currentBlock.position)) currentBlock.rotateX(Math.PI / 2);
+            else moved = true;
+            break;
+        case 'x':
+            currentBlock.rotateZ(Math.PI / 2);
+            if (!isValidPosition(currentBlock, currentBlock.position)) currentBlock.rotateZ(-Math.PI / 2);
+            else moved = true;
+            break;
+        case 'z':
+            currentBlock.rotateZ(-Math.PI / 2);
+            if (!isValidPosition(currentBlock, currentBlock.position)) currentBlock.rotateZ(Math.PI / 2);
+            else moved = true;
+            break;
+        case ' ': // Space
+            isSoftDropping = true;
+            break;
+    }
+    if (moved) {
+        updateGhostBlockPosition();
     }
 });
-document.addEventListener('keyup', (event) => { if (event.key === ' ') isSoftDropping = false; });
+
+document.addEventListener('keyup', (event) => {
+    if (event.key === ' ') { // Space
+        isSoftDropping = false;
+    }
+});
 
 // --- Main Loop ---
 function animate() {
@@ -328,9 +463,13 @@ function animate() {
 
         if (currentBlock && fallAccumulator >= fallInterval) {
             fallAccumulator = 0;
-            currentBlock.position.y -= 1;
-            if (!isValidPosition(currentBlock)) {
-                currentBlock.position.y += 1;
+            // Test if moving down is valid
+            const testPosition = currentBlock.position.clone();
+            testPosition.y -= 1;
+            if (isValidPosition(currentBlock, testPosition)) {
+                currentBlock.position.y -= 1;
+                updateGhostBlockPosition(); // Update ghost after current block moves
+            } else {
                 lockBlock();
             }
         }
@@ -352,3 +491,4 @@ window.addEventListener('resize', () => {
     nextCamera.updateProjectionMatrix();
     nextRenderer.setSize(nextBlockContainer.clientWidth, nextBlockContainer.clientHeight);
 });
+
