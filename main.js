@@ -179,35 +179,38 @@ function makeTextSprite(message, parameters) {
 
     const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
     const sprite = new THREE.Sprite(spriteMaterial);
-    sprite.scale.set(canvas.width * 0.03, canvas.height * 0.03, 1); 
+    sprite.scale.set(canvas.width * 0.025, canvas.height * 0.025, 1); 
     return sprite;
 }
 
+const indicatorArrowLength = 0.8; // Slightly smaller arrow length
+const indicatorOffset = 1.5; // Increased offset from the field edge
+
 // +X (Right) Arrow and Text
-const plusXArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(FIELD_WIDTH / 2 - 1, 0.1, 0), 1, 0xff0000);
+const plusXArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(FIELD_WIDTH / 2 - 0.5, 0.1, 0), indicatorArrowLength, 0xff0000);
 const plusXText = makeTextSprite("+X (→)");
-plusXText.position.set(FIELD_WIDTH / 2 + 0.5, 0.1, 0);
+plusXText.position.set(FIELD_WIDTH / 2 + indicatorOffset, 0.1, 0);
 axisGroup.add(plusXArrow);
 axisGroup.add(plusXText);
 
 // -X (Left) Arrow and Text
-const minusXArrow = new THREE.ArrowHelper(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(-FIELD_WIDTH / 2 + 1, 0.1, 0), 1, 0xff0000);
+const minusXArrow = new THREE.ArrowHelper(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(-FIELD_WIDTH / 2 + 0.5, 0.1, 0), indicatorArrowLength, 0xff0000);
 const minusXText = makeTextSprite("-X (←)");
-minusXText.position.set(-FIELD_WIDTH / 2 - 0.5, 0.1, 0);
+minusXText.position.set(-FIELD_WIDTH / 2 - indicatorOffset, 0.1, 0);
 axisGroup.add(minusXArrow);
 axisGroup.add(minusXText);
 
 // +Z (Backward/Arrow Down) Arrow and Text
-const plusZArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0.1, FIELD_DEPTH / 2 - 1), 1, 0x0000ff);
+const plusZArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0.1, FIELD_DEPTH / 2 - 0.5), indicatorArrowLength, 0x0000ff);
 const plusZText = makeTextSprite("+Z (↓)");
-plusZText.position.set(0, 0.1, FIELD_DEPTH / 2 + 0.5);
+plusZText.position.set(0, 0.1, FIELD_DEPTH / 2 + indicatorOffset);
 axisGroup.add(plusZArrow);
 axisGroup.add(plusZText);
 
 // -Z (Forward/Arrow Up) Arrow and Text
-const minusZArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0.1, -FIELD_DEPTH / 2 + 1), 1, 0x0000ff);
+const minusZArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0.1, -FIELD_DEPTH / 2 + 0.5), indicatorArrowLength, 0x0000ff);
 const minusZText = makeTextSprite("-Z (↑)");
-minusZText.position.set(0, 0.1, -FIELD_DEPTH / 2 - 0.5);
+minusZText.position.set(0, 0.1, -FIELD_DEPTH / 2 - indicatorOffset);
 axisGroup.add(minusZArrow);
 axisGroup.add(minusZText);
 
