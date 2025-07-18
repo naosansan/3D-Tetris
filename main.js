@@ -67,6 +67,7 @@ const placedCubes = new THREE.Group();
 scene.add(placedCubes);
 let score = 0;
 let lines = 0;
+let isFallPaused = false; // Flag to pause the block's fall
 
 function createBlock(type, isGhost = false) {
     const blockData = BLOCKS[type];
@@ -443,6 +444,9 @@ document.addEventListener('keydown', (event) => {
         case ' ': // Space
             isSoftDropping = true;
             break;
+        case 'p': // Pause fall
+            isFallPaused = !isFallPaused;
+            break;
     }
     if (moved) {
         updateGhostBlockPosition();
@@ -464,7 +468,7 @@ function animate() {
         fallAccumulator += deltaTime;
         const fallInterval = isSoftDropping ? 0.05 : 1.0;
 
-        if (currentBlock && fallAccumulator >= fallInterval) {
+        if (currentBlock && fallAccumulator >= fallInterval && !isFallPaused) {
             fallAccumulator = 0;
             // Test if moving down is valid
             const testPosition = currentBlock.position.clone();
